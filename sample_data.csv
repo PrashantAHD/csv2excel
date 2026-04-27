@@ -1,0 +1,22 @@
+Employee ID,Name,Department,Title,Salary,Bonus,Start Date,Performance,Status
+1001,Alice Johnson,Engineering,Senior Developer,125000,15000,2019-03-15,92%,Active
+1002,Bob Smith,Marketing,Marketing Manager,95000,8500,2020-07-01,85%,Active
+1003,Carol Williams,Engineering,Tech Lead,140000,18000,2018-01-20,95%,Active
+1004,David Brown,Sales,Account Executive,78000,12000,2021-05-10,78%,Active
+1005,Eve Davis,Engineering,Junior Developer,72000,5000,2023-02-14,88%,Active
+1006,Frank Miller,HR,HR Specialist,68000,4500,2022-09-01,82%,Active
+1007,Grace Wilson,Sales,Sales Director,135000,22000,2017-11-30,91%,Active
+1008,Henry Moore,Marketing,Content Strategist,82000,6000,2021-08-15,76%,Active
+1009,Irene Taylor,Engineering,DevOps Engineer,118000,13000,2020-04-22,89%,Active
+1010,Jack Anderson,Finance,Financial Analyst,88000,7500,2019-12-05,84%,Inactive
+1011,Karen Thomas,Engineering,Senior Developer,128000,15500,2018-06-18,93%,Active
+1012,Leo Jackson,Sales,Account Executive,79000,11000,2022-01-10,72%,Active
+1013,Mona White,HR,HR Manager,98000,9000,2016-10-25,90%,Active
+1014,Nathan Harris,Finance,Controller,145000,20000,2015-08-12,96%,Active
+1015,Olivia Martin,Marketing,VP Marketing,155000,25000,2014-03-01,94%,Active
+1016,Paul Garcia,Engineering,Architect,160000,22000,2017-02-28,97%,Active
+1017,Quinn Robinson,Sales,Sales Rep,62000,8000,2023-07-20,68%,Active
+1018,Rachel Clark,Engineering,Senior Developer,126000,15200,2019-09-14,91%,Active
+1019,Steve Lewis,Finance,Accountant,72000,4800,2021-11-03,80%,Active
+1020,Tina Walker,HR,Recruiter,65000,3500,2022-06-15,77%,Inactive
+1021,Alice Johnson,Engineering,Senior Developer,125000,15000,2019-03-15,92%,Active
