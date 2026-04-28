@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""csv2excel — Convert raw CSV data into a polished, client-facing Excel workbook.
+"""csv2excel — Add raw CSV data as styled tabs in an Excel workbook.
 
 Usage:
-    python -m csv2excel --input data.csv --output report.xlsx
-    python -m csv2excel --input data.csv --title "Q4 Sales Report" --brand-color "#1F4E79"
-    cat data.csv | python -m csv2excel --output report.xlsx      (stdin)
+    python -m csv2excel --output report.xlsx --tab "Sales"          (paste CSV, press Ctrl-Z/Ctrl-D)
+    python -m csv2excel --output report.xlsx --tab "Sales" --input data.csv
+    echo "a,b\\n1,2" | python -m csv2excel --output report.xlsx --tab "Sales"
+
+Each invocation adds a new tab (with summary & charts) to the workbook.
+If the workbook doesn't exist yet, a Cover sheet is created automatically.
 """
 
 from __future__ import annotations
@@ -13,15 +16,15 @@ import argparse
 import logging
 import sys
 from collections import Counter
+from copy import copy
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.drawing.image import Image as XlImage
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from csv2excel.charts import add_pie_from_pivot, generate_charts
 from csv2excel.data_processor import (
@@ -31,6 +34,8 @@ from csv2excel.data_processor import (
     find_duplicates,
     read_csv,
 )
+from openpyxl.styles import Font
+
 from csv2excel.styling import (
     BrandPalette,
     apply_header_style,
@@ -91,8 +96,10 @@ def _build_cover(
         ("Prepared by:", prepared_by),
     ]
     for label, value in meta:
-        ws.cell(row=current_row, column=2, value=label).font = \
-            ws.cell(row=current_row, column=2).font.copy(bold=True)
+        lbl_cell = ws.cell(row=current_row, column=2, value=label)
+        lbl_font = copy(lbl_cell.font)
+        lbl_font.bold = True
+        lbl_cell.font = lbl_font
         ws.cell(row=current_row, column=3, value=value)
         current_row += 1
 
@@ -102,7 +109,7 @@ def _build_cover(
         row=current_row, column=2,
         value="CONFIDENTIAL — This report is intended for authorized recipients only.",
     )
-    disc.font = disc.font.copy(italic=True, color="999999", size=9)
+    disc.font = Font(name="Calibri", italic=True, color="999999", size=9)
     ws.merge_cells(start_row=current_row, start_column=2,
                    end_row=current_row, end_column=6)
 
@@ -117,13 +124,14 @@ def _build_cover(
 
 def _build_data_sheet(
     wb: Workbook,
+    tab_name: str,
     headers: list[str],
     rows: list[list[str]],
     col_meta: list[dict[str, Any]],
     dupe_rows: set[int],
     palette: BrandPalette,
 ) -> None:
-    ws = wb.create_sheet("Data")
+    ws = wb.create_sheet(tab_name)
     ws.sheet_properties.tabColor = palette.secondary
     col_count = len(headers)
     data_start = 2
@@ -176,8 +184,9 @@ def _build_data_sheet(
 
     # Named range
     from openpyxl.workbook.defined_name import DefinedName
-    range_str = f"Data!$A$1:${get_column_letter(col_count)}${data_end}"
-    dn = DefinedName("DataRange", attr_text=range_str)
+    safe_name = tab_name.replace(" ", "_")
+    range_str = f"'{tab_name}'!$A$1:${get_column_letter(col_count)}${data_end}"
+    dn = DefinedName(safe_name + "_Range", attr_text=range_str)
     wb.defined_names.add(dn)
 
     auto_fit_columns(ws)
@@ -188,14 +197,16 @@ def _build_data_sheet(
 
 def _build_summary(
     wb: Workbook,
+    tab_name: str,
     headers: list[str],
     rows: list[list[str]],
     col_meta: list[dict[str, Any]],
     palette: BrandPalette,
 ) -> None:
-    ws = wb.create_sheet("Summary")
+    summary_name = f"{tab_name} - Summary"
+    ws = wb.create_sheet(summary_name)
     ws.sheet_properties.tabColor = "27AE60"
-    data_ws = wb["Data"]
+    data_ws = wb[tab_name]
 
     row_cursor = 2
 
@@ -314,16 +325,18 @@ def _build_data_dictionary(
 
 # ── Main entry point ─────────────────────────────────────────────────────────
 
-def build_workbook(
+def add_tab(
     source: str | Path,
     output: str | Path,
+    tab_name: str,
     title: str = "Data Report",
     subtitle: str = "",
     prepared_by: str = "Automated System",
     brand_color: str = "1F4E79",
     logo_path: str | None = None,
+    include_summary: bool = False,
 ) -> Path:
-    """End-to-end: read CSV → build Excel workbook → save."""
+    """Read CSV data → add a styled tab to the workbook → save."""
     palette = BrandPalette(primary=brand_color)
     headers, rows = read_csv(source)
     col_meta = analyze_columns(headers, rows)
@@ -334,16 +347,37 @@ def build_workbook(
     if dupe_rows:
         logger.info("Found %d duplicate row(s)", len(dupe_rows))
 
-    wb = Workbook()
-    register_styles(wb, palette)
-
-    _build_cover(wb, title, subtitle or f"Generated from {Path(source).name if isinstance(source, (str, Path)) and Path(source).is_file() else 'CSV input'}",
-                 prepared_by, logo_path, palette)
-    _build_data_sheet(wb, headers, rows, col_meta, dupe_rows, palette)
-    _build_summary(wb, headers, rows, col_meta, palette)
-    _build_data_dictionary(wb, col_meta, palette)
-
     out = Path(output)
+
+    # Open existing workbook or create a new one with a Cover sheet
+    if out.is_file():
+        logger.info("Opening existing workbook: %s", out)
+        wb = load_workbook(out)
+        # Ensure named styles exist (may be missing if workbook was created externally)
+        if "header_style" not in wb.named_styles:
+            register_styles(wb, palette)
+    else:
+        logger.info("Creating new workbook: %s", out)
+        wb = Workbook()
+        register_styles(wb, palette)
+        _build_cover(
+            wb, title,
+            subtitle or "Automated Report",
+            prepared_by, logo_path, palette,
+        )
+
+    # Check for duplicate tab names
+    if tab_name in wb.sheetnames:
+        logger.warning("Tab '%s' already exists — appending suffix", tab_name)
+        i = 2
+        while f"{tab_name} ({i})" in wb.sheetnames:
+            i += 1
+        tab_name = f"{tab_name} ({i})"
+
+    _build_data_sheet(wb, tab_name, headers, rows, col_meta, dupe_rows, palette)
+    if include_summary:
+        _build_summary(wb, tab_name, headers, rows, col_meta, palette)
+
     wb.save(out)
     logger.info("Workbook saved → %s", out.resolve())
     return out
@@ -352,16 +386,12 @@ def build_workbook(
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="csv2excel",
-        description="Transform raw CSV data into a polished, client-facing Excel workbook.",
+        description="Add CSV data as a styled tab in an Excel workbook.",
     )
-    parser.add_argument("--input", "-i", required=False,
-                        help="Path to the input CSV file. Omit to read from stdin.")
     parser.add_argument("--output", "-o", default="report.xlsx",
                         help="Output Excel file path (default: report.xlsx)")
     parser.add_argument("--title", "-t", default="Data Report",
-                        help="Report title on the cover sheet")
-    parser.add_argument("--subtitle", default="",
-                        help="Report subtitle")
+                        help="Report title on the cover sheet (new workbooks only)")
     parser.add_argument("--prepared-by", default="Automated System",
                         help="Name shown on the cover sheet")
     parser.add_argument("--brand-color", default="1F4E79",
@@ -376,28 +406,38 @@ def main() -> None:
         datefmt="%H:%M:%S",
     )
 
-    if args.input:
-        source: str | Path = Path(args.input)
-        if not source.is_file():
-            logger.error("File not found: %s", source)
-            sys.exit(1)
-    else:
-        logger.info("Reading CSV from stdin…")
-        source = sys.stdin.read()
-        if not source.strip():
-            logger.error("No data received on stdin")
-            sys.exit(1)
+    # Interactive: ask for sheet name
+    tab_name = input("\n📋 Enter the sheet/tab name: ").strip()
+    if not tab_name:
+        logger.error("Sheet name cannot be empty")
+        sys.exit(1)
 
-    out = build_workbook(
+    # Interactive: ask for CSV data
+    print("\n📄 Paste your CSV data below (press Enter twice on an empty line when done):\n")
+    lines: list[str] = []
+    while True:
+        try:
+            line = input()
+        except EOFError:
+            break
+        if line == "" and lines:
+            break
+        lines.append(line)
+    source = "\n".join(lines)
+    if not source.strip():
+        logger.error("No CSV data received")
+        sys.exit(1)
+
+    out = add_tab(
         source=source,
         output=args.output,
+        tab_name=tab_name,
         title=args.title,
-        subtitle=args.subtitle,
         prepared_by=args.prepared_by,
         brand_color=args.brand_color.lstrip("#"),
         logo_path=args.logo,
     )
-    print(f"\n✅ Report saved: {out.resolve()}")
+    print(f"\n✅ Tab '{tab_name}' added to: {out.resolve()}")
 
 
 if __name__ == "__main__":
