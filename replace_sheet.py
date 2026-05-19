@@ -1,11 +1,19 @@
+import argparse
 import csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-drop = {"Subscription"}
+parser = argparse.ArgumentParser(description="Convert a CSV into a single styled Excel sheet, dropping specified columns.")
+parser.add_argument("csv_file", help="Path to the input CSV file")
+parser.add_argument("output", help="Path for the output .xlsx file")
+parser.add_argument("--drop", nargs="*", default=["Subscription"], metavar="COL",
+                    help="Column name(s) to exclude (default: Subscription)")
+args = parser.parse_args()
 
-with open(r"C:\Users\PrashantKumar\csv2excel\temp_data.csv", newline="") as f:
+drop = set(args.drop)
+
+with open(args.csv_file, newline="") as f:
     reader = csv.reader(f)
     all_rows = list(reader)
 
@@ -52,5 +60,5 @@ for col_cells in ws.columns:
     col_letter = get_column_letter(col_cells[0].column)
     ws.column_dimensions[col_letter].width = max(10, min(best, 50))
 
-wb.save(r"C:\Users\PrashantKumar\csv2excel\report.xlsx")
+wb.save(args.output)
 print(f"Done. {len(rows)} rows, columns: {new_headers}")

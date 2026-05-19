@@ -1,0 +1,21 @@
+[build-system]
+requires      = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name            = "csv2excel"
+version         = "1.0.0"
+description     = "Convert CSV data to styled Excel workbooks; generate Wiz security governance reports"
+requires-python = ">=3.10"
+dependencies    = [
+    "openpyxl>=3.1.0",
+    "Pillow>=10.0.0",
+]
+
+[project.scripts]
+csv2excel  = "csv2excel.__main__:main"
+wiz-report = "csv2excel.wiz_report:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["csv2excel*"]

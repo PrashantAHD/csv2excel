@@ -1,8 +1,13 @@
+import argparse
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-wb = load_workbook(r'C:\Users\PrashantKumar\csv2excel\CareFirst_Governance_Report.xlsx')
+parser = argparse.ArgumentParser(description="Add/replace the CRITICAL Issues tab in a governance workbook.")
+parser.add_argument("workbook", help="Path to the .xlsx workbook")
+args = parser.parse_args()
+
+wb = load_workbook(args.workbook)
 
 # ── shared styles ─────────────────────────────────────────────────────────────
 thin = Side(style='thin', color='BDD7EE')
@@ -198,6 +203,6 @@ for ci, w in enumerate(col_widths, 1):
 
 ws.freeze_panes = 'A5'
 
-wb.save(r'C:\Users\PrashantKumar\csv2excel\CareFirst_Governance_Report.xlsx')
+wb.save(args.workbook)
 print('Done — 1 tab created: CRITICAL Issues')
 

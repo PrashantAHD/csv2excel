@@ -1,6 +1,11 @@
+import argparse
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+parser = argparse.ArgumentParser(description="Add/replace the Summary tab in a governance workbook.")
+parser.add_argument("workbook", help="Path to the .xlsx workbook")
+args = parser.parse_args()
 
 # ── Styles ────────────────────────────────────────────────────────────────────
 thin      = Side(style='thin', color='BDD7EE')
@@ -37,7 +42,7 @@ summary_data = [
 ]
 
 # ── Build tab ─────────────────────────────────────────────────────────────────
-wb = load_workbook(r'C:\Users\PrashantKumar\csv2excel\CareFirst_Governance_Report.xlsx')
+wb = load_workbook(args.workbook)
 
 if 'Summary' in wb.sheetnames:
     del wb['Summary']
@@ -140,5 +145,5 @@ for ci, w in enumerate([14, 10, 14, 14, 16, 24, 18, 26], 1):
 
 ws.freeze_panes = 'A5'
 
-wb.save(r'C:\Users\PrashantKumar\csv2excel\CareFirst_Governance_Report.xlsx')
+wb.save(args.workbook)
 print('Done — Summary tab added as first tab.')

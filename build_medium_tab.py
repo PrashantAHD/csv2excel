@@ -1,8 +1,14 @@
+import argparse
 import csv
 from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+parser = argparse.ArgumentParser(description="Add/replace the MEDIUM Issues tab in a governance workbook.")
+parser.add_argument("workbook", help="Path to the .xlsx workbook")
+parser.add_argument("csv_file", help="Path to the issues CSV export")
+args = parser.parse_args()
 
 
 def parse_dt(s):
@@ -17,7 +23,7 @@ def parse_dt(s):
     return None
 
 
-with open(r'C:\Users\PrashantKumar\Downloads\1778881398221021210.csv', encoding='utf-8-sig') as f:
+with open(args.csv_file, encoding='utf-8-sig') as f:
     rows = list(csv.DictReader(f))
 
 mar_sd = datetime(2026, 3, 15, 23, 59, 59)
@@ -121,7 +127,7 @@ def h(ws, row, col, val, fill=None, font=None, align=None, border=None):
 
 
 # ── Build tab ─────────────────────────────────────────────────────────────────
-wb = load_workbook(r'C:\Users\PrashantKumar\csv2excel\CareFirst_Governance_Report.xlsx')
+wb = load_workbook(args.workbook)
 
 if 'MEDIUM Issues' in wb.sheetnames:
     del wb['MEDIUM Issues']
@@ -255,5 +261,5 @@ for ci, w in enumerate([38, 42, 10, 10, 14, 22, 14], 1):
     ws.column_dimensions[get_column_letter(ci)].width = w
 ws.freeze_panes = 'A5'
 
-wb.save(r'C:\Users\PrashantKumar\csv2excel\CareFirst_Governance_Report.xlsx')
+wb.save(args.workbook)
 print(f'Done — MEDIUM Issues tab added. {len(ri_issues)} resolved/ignored issues listed.')

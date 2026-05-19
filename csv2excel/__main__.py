@@ -2,7 +2,7 @@
 """csv2excel — Add raw CSV data as styled tabs in an Excel workbook.
 
 Usage:
-    python -m csv2excel --output report.xlsx --tab "Sales"          (paste CSV, press Ctrl-Z/Ctrl-D)
+    python -m csv2excel --output report.xlsx --tab "Sales"          (paste CSV interactively)
     python -m csv2excel --output report.xlsx --tab "Sales" --input data.csv
     echo "a,b\\n1,2" | python -m csv2excel --output report.xlsx --tab "Sales"
 
@@ -299,6 +299,8 @@ def _build_data_dictionary(
     col_meta: list[dict[str, Any]],
     palette: BrandPalette,
 ) -> None:
+    if "header_style" not in wb.named_styles:
+        register_styles(wb, palette)
     ws = wb.create_sheet("Data Dictionary")
     ws.sheet_properties.tabColor = "E67E22"
 
@@ -335,6 +337,7 @@ def add_tab(
     brand_color: str = "1F4E79",
     logo_path: str | None = None,
     include_summary: bool = False,
+    include_data_dictionary: bool = False,
 ) -> Path:
     """Read CSV data → add a styled tab to the workbook → save."""
     palette = BrandPalette(primary=brand_color)
@@ -377,6 +380,8 @@ def add_tab(
     _build_data_sheet(wb, tab_name, headers, rows, col_meta, dupe_rows, palette)
     if include_summary:
         _build_summary(wb, tab_name, headers, rows, col_meta, palette)
+    if include_data_dictionary and "Data Dictionary" not in wb.sheetnames:
+        _build_data_dictionary(wb, col_meta, palette)
 
     wb.save(out)
     logger.info("Workbook saved → %s", out.resolve())
@@ -390,14 +395,24 @@ def main() -> None:
     )
     parser.add_argument("--output", "-o", default="report.xlsx",
                         help="Output Excel file path (default: report.xlsx)")
+    parser.add_argument("--input", "-i", default=None,
+                        help="Path to input CSV file. If omitted, reads from stdin or interactive paste.")
+    parser.add_argument("--tab", default=None,
+                        help="Sheet/tab name to create. If omitted, you will be prompted.")
     parser.add_argument("--title", "-t", default="Data Report",
                         help="Report title on the cover sheet (new workbooks only)")
+    parser.add_argument("--subtitle", default="",
+                        help="Subtitle shown on cover sheet (new workbooks only)")
     parser.add_argument("--prepared-by", default="Automated System",
                         help="Name shown on the cover sheet")
     parser.add_argument("--brand-color", default="1F4E79",
                         help="Primary brand hex color (default: 1F4E79)")
     parser.add_argument("--logo", default=None,
                         help="Path to a logo image (png/jpg)")
+    parser.add_argument("--include-summary", action="store_true",
+                        help="Also generate a summary/dashboard sheet for the added tab.")
+    parser.add_argument("--include-data-dictionary", action="store_true",
+                        help="Add a Data Dictionary sheet once (if not already present).")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -406,38 +421,51 @@ def main() -> None:
         datefmt="%H:%M:%S",
     )
 
-    # Interactive: ask for sheet name
-    tab_name = input("\n📋 Enter the sheet/tab name: ").strip()
+    # Sheet name: from arg or interactive prompt
+    tab_name = (args.tab or "").strip()
+    if not tab_name:
+        tab_name = input("\nEnter the sheet/tab name: ").strip()
     if not tab_name:
         logger.error("Sheet name cannot be empty")
         sys.exit(1)
 
-    # Interactive: ask for CSV data
-    print("\n📄 Paste your CSV data below (press Enter twice on an empty line when done):\n")
-    lines: list[str] = []
-    while True:
-        try:
-            line = input()
-        except EOFError:
-            break
-        if line == "" and lines:
-            break
-        lines.append(line)
-    source = "\n".join(lines)
-    if not source.strip():
-        logger.error("No CSV data received")
-        sys.exit(1)
+    # Source priority: --input file > piped stdin > interactive paste
+    if args.input:
+        source: str | Path = Path(args.input)
+    elif not sys.stdin.isatty():
+        source = sys.stdin.read()
+        if not source.strip():
+            logger.error("No CSV data received from stdin")
+            sys.exit(1)
+    else:
+        print("\nPaste your CSV data below (press Enter twice on an empty line when done):\n")
+        lines: list[str] = []
+        while True:
+            try:
+                line = input()
+            except EOFError:
+                break
+            if line == "" and lines:
+                break
+            lines.append(line)
+        source = "\n".join(lines)
+        if not source.strip():
+            logger.error("No CSV data received")
+            sys.exit(1)
 
     out = add_tab(
         source=source,
         output=args.output,
         tab_name=tab_name,
         title=args.title,
+        subtitle=args.subtitle,
         prepared_by=args.prepared_by,
         brand_color=args.brand_color.lstrip("#"),
         logo_path=args.logo,
+        include_summary=args.include_summary,
+        include_data_dictionary=args.include_data_dictionary,
     )
-    print(f"\n✅ Tab '{tab_name}' added to: {out.resolve()}")
+    print(f"\nTab '{tab_name}' added to: {out.resolve()}")
 
 
 if __name__ == "__main__":

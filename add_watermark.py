@@ -1,6 +1,11 @@
+import argparse
 from openpyxl import load_workbook
 
-wb = load_workbook(r'C:\Users\PrashantKumar\csv2excel\CareFirst_Governance_Report.xlsx')
+parser = argparse.ArgumentParser(description="Apply print header/footer watermark to every sheet in a workbook.")
+parser.add_argument("workbook", help="Path to the .xlsx workbook")
+args = parser.parse_args()
+
+wb = load_workbook(args.workbook)
 
 header_text = '&"Calibri,Bold"&36&KA6A6A6CONFIDENTIAL \u2014 PROPRIETARY TO AHEAD'
 footer_left  = '&"Calibri,Regular"&9&K808080Confidential \u2014 Proprietary to AHEAD'
@@ -11,5 +16,5 @@ for ws in wb.worksheets:
     ws.oddFooter.left.text   = footer_left
     ws.oddFooter.right.text  = footer_right
 
-wb.save(r'C:\Users\PrashantKumar\csv2excel\CareFirst_Governance_Report.xlsx')
+wb.save(args.workbook)
 print('Watermark added to tabs:', wb.sheetnames)
